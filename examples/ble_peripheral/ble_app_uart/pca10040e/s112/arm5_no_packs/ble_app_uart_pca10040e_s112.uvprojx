@@ -1093,6 +1093,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\ble_service\ble_diy_service.c</FilePath>
             </File>
+            <File>
+              <FileName>ble_info_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\ble_service\ble_info_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -4677,6 +4682,11 @@
               <FileName>ble_diy_service.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\ble_service\ble_diy_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_info_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\ble_service\ble_info_service.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -69,6 +69,7 @@
 #include "bsp_btn_ble.h"
 #include "nrf_pwr_mgmt.h"
 #include "ble_diy_service.h"
+#include "ble_info_service.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -268,6 +269,7 @@ static void services_init(void)
     uint32_t           err_code;
     nrf_ble_qwr_init_t qwr_init = {0};
     ble_diy_init_t diy_init = {0};
+    ble_info_init_t info_init = {0};
 
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
@@ -275,7 +277,11 @@ static void services_init(void)
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
     APP_ERROR_CHECK(err_code);
 
-    // Initialize DIY.
+    //Initialize Info Service.
+    err_code = ble_info_service_init(&info_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize DIY Service.
     memset(&diy_init, 0, sizeof(diy_init));
     diy_init.data_handler = diy_service_handler;
 
