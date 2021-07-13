@@ -68,6 +68,7 @@
 #include "app_util_platform.h"
 #include "bsp_btn_ble.h"
 #include "nrf_pwr_mgmt.h"
+#include "ble_diy_service.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -117,7 +118,7 @@
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
 
-
+BLE_DIY_DEF(m_diy);                                                                 /**< BLE NUS service instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
@@ -239,6 +240,24 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
+/**@brief Function for handling the data from the Nordic UART Service.
+ *
+ * @details This function will process the data received from the Nordic UART BLE Service and send
+ *          it to the UART module.
+ *
+ * @param[in] p_evt       Nordic UART Service event.
+ */
+/**@snippet [Handling the data received over BLE] */
+static void diy_service_handler(ble_diy_evt_t *p_evt)
+{
+  uint16_t uuid = p_evt->uuid;
+  switch (uuid)
+  {
+  default:
+      break;
+  }
+}
+
 /**@snippet [Handling the data received over BLE] */
 
 
@@ -248,11 +267,19 @@ static void services_init(void)
 {
     uint32_t           err_code;
     nrf_ble_qwr_init_t qwr_init = {0};
+    ble_diy_init_t diy_init = {0};
 
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
 
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize DIY.
+    memset(&diy_init, 0, sizeof(diy_init));
+    diy_init.data_handler = diy_service_handler;
+
+    err_code = ble_diy_service_init(&m_diy, &diy_init);
     APP_ERROR_CHECK(err_code);
 }
 
