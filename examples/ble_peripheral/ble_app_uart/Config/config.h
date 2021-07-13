@@ -69,7 +69,7 @@ extern "C"
  * @return The updated CRC-32 value, based on the input supplied.
  */
     uint32_t crc32(uint32_t crc, uint8_t *buf, uint32_t len);
-    
+
     typedef struct
     {
         //

@@ -71,6 +71,7 @@
 #include "ble_diy_service.h"
 #include "ble_info_service.h"
 #include "config.h"
+#include "nvmc.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -281,6 +282,7 @@ static void diy_service_handler(ble_diy_evt_t *p_evt)
   case SERVICEPROFILE_UUID_CHAR8:
       memcpy((void *)&sys_config_t.Rxp, p_evt->params.service_data.p_data, 1);
       break;
+
   default:
       break;
   }
@@ -724,6 +726,8 @@ int main(void)
     // Initialize.
     uart_init();
     timers_init();
+    Nvcm_Check_init(sizeof(SYS_CONFIG) + sizeof(uint32_t));
+    Nvmc_Read((uint8_t *)&sys_config_t, sizeof(SYS_CONFIG));
 
     power_management_init();
     ble_stack_init();
@@ -742,7 +746,6 @@ int main(void)
         idle_state_handle();
     }
 }
-
 
 /**
  * @}
