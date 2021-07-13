@@ -80,11 +80,12 @@
 
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define DEVICE_NAME                     "Nordic_UART"                               /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "Beelinker"                                 /**< Name of device. Will be included in the advertising data. */
+#define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_BLE                                     /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 
-
+#define APP_ADV_INTERVAL                160                                         /**< The advertising interval (in units of 0.625 ms. This value corresponds to 100 ms). */
 #define APP_ADV_DURATION                18000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
@@ -94,6 +95,22 @@
 #define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)                       /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)                      /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
+
+#define APP_BEACON_INFO_LENGTH          0x17
+#define APP_ADV_DATA_LENGTH             0x15
+#define APP_DEVICE_TYPE                 0x02
+#define APP_MEASURED_RISS               0xB5
+#define APP_COMPANY_IDENTIFIER          0x004C
+#define APP_MAJOR_VALUE                 0x27, 0x14
+#define APP_MINOR_VALUE                 0x36, 0xCD
+#define APP_BEACON_UUID                 0xFD, 0xA5, 0x06, 0x93, \
+                                        0xA4, 0xE2, 0x4F, 0xB1, \
+                                        0xAF, 0xCF, 0xC6, 0xEB, \
+                                        0x07, 0x64, 0x78, 0x25
+#define MAJ_VAL_OFFSET_IN_BEACON_INFO   18
+#define UICR_ADDRESS                    0x10001080
+#define BLE_SERVICE_UUID                0x2578
+#define BLE_UUID_DIY_SERVICE            0xFFF0                                      /**< The UUID of the Diy Service. */
 
 #define DEAD_BEEF                       0xDEADBEEF                                  /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
@@ -105,7 +122,56 @@ NRF_BLE_GATT_DEF(m_gatt);                                                       
 NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
 
-static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
+
+#if defined(USE_UICR_FOR_MAJ_MIN_VALUES)
+#define MAJ_VAL_OFFSET_IN_BEACON_INFO 18 /**< Position of the MSB of the Major Value in m_beacon_info array. */
+#define UICR_ADDRESS 0x10001080          /**< Address of the UICR register used by this example. The major and minor versions to be encoded into the advertising data will be picked up from this location. */
+#endif
+
+static ble_gap_adv_params_t m_adv_params;                     /**< Parameters to be passed to the stack when starting advertising. */
+static uint8_t      m_adv_handle     = BLE_GAP_ADV_SET_HANDLE_NOT_SET; /**< Advertising handle used to identify an advertising set. */
+static uint8_t      m_enc_advdata[BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+
+static uint16_t     m_conn_handle = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
+static uint8_t      m_enc_scandata[BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+static ble_uuid_t   m_adv_uuids[] = /**< Universally unique service identifier. */
+   {
+        {BLE_UUID_DIY_SERVICE, NUS_SERVICE_UUID_TYPE}};
+
+static uint8_t p_data[] = {0x27, 0xD6, 0x28, 0x66, 0xE5, 0x01};
+
+/**@brief Struct that contains pointers to the encoded advertising data. */
+static ble_gap_adv_data_t m_adv_data =
+    {
+        .adv_data =
+            {
+                .p_data = m_enc_advdata,
+                .len = BLE_GAP_ADV_SET_DATA_SIZE_MAX},
+        .scan_rsp_data =
+            {
+                .p_data = m_enc_scandata,
+                .len = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+
+            }};
+
+static uint8_t m_beacon_info[APP_BEACON_INFO_LENGTH] = /**< Information advertised by the Beacon. */
+    {
+        APP_DEVICE_TYPE,     // Manufacturer specific information. Specifies the device type in this
+                             // implementation.
+        APP_ADV_DATA_LENGTH, // Manufacturer specific information. Specifies the length of the
+                             // manufacturer specific data in this implementation.
+        APP_BEACON_UUID,     // 128 bit UUID value.
+
+        APP_MAJOR_VALUE, // Major arbitrary value that can be used to distinguish between Beacons.
+
+        APP_MINOR_VALUE, // Minor arbitrary value that can be used to distinguish between Beacons.
+
+        APP_MEASURED_RISS // Manufacturer specific information. The Beacon's measured TX power in
+                          // this implementation.
+};
+
+static void advertising_start(void);
+static void advertising_init(void);
 
 /**@brief Function for assert macro callback.
  *
@@ -475,9 +541,77 @@ static void uart_init(void)
  */
 static void advertising_init(void)
 {
+    uint32_t err_code;
+    uint8_t S_interval = APP_ADV_INTERVAL;
+    ble_advertising_init_t init;
+    ble_advdata_service_data_t sr_data;
+    ble_advdata_manuf_data_t manuf_specific_data;
 
+#if defined(USE_UICR_FOR_MAJ_MIN_VALUES)
+    // If USE_UICR_FOR_MAJ_MIN_VALUES is defined, the major and minor values will be read from the
+    // UICR instead of using the default values. The major and minor values obtained from the UICR
+    // are encoded into advertising data in big endian order (MSB First).
+    // To set the UICR used by this example to a desired value, write to the address 0x10001080
+    // using the nrfjprog tool. The command to be used is as follows.
+    // nrfjprog --snr <Segger-chip-Serial-Number> --memwr 0x10001080 --val <your major/minor value>
+    // For example, for a major value and minor value of 0xabcd and 0x0102 respectively, the
+    // the following command should be used.
+    // nrfjprog --snr <Segger-chip-Serial-Number> --memwr 0x10001080 --val 0xabcd0102
+    uint16_t major_value = ((*(uint32_t *)UICR_ADDRESS) & 0xFFFF0000) >> 16;
+    uint16_t minor_value = ((*(uint32_t *)UICR_ADDRESS) & 0x0000FFFF);
+
+    uint8_t index = MAJ_VAL_OFFSET_IN_BEACON_INFO;
+
+    m_beacon_info[index++] = MSB_16(major_value);
+    m_beacon_info[index++] = LSB_16(major_value);
+
+    m_beacon_info[index++] = MSB_16(minor_value);
+    m_beacon_info[index++] = LSB_16(minor_value);
+#endif
+
+    manuf_specific_data.company_identifier = APP_COMPANY_IDENTIFIER;
+    manuf_specific_data.data.p_data = (uint8_t *)m_beacon_info;
+    manuf_specific_data.data.size = APP_BEACON_INFO_LENGTH;
+
+    // 建立和设置广播数据.
+    memset(&init, 0, sizeof(init));
+
+    init.advdata.name_type = BLE_ADVDATA_NO_NAME;
+    init.advdata.flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    init.advdata.include_appearance = false;
+    init.advdata.p_manuf_specific_data = &manuf_specific_data;
+
+    init.srdata.name_type = BLE_ADVDATA_FULL_NAME;
+    init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    init.srdata.uuids_complete.p_uuids = m_adv_uuids;
+
+    sr_data.service_uuid = BLE_SERVICE_UUID;
+    sr_data.data.p_data = p_data;
+    sr_data.data.size = sizeof(p_data);
+
+    init.srdata.p_service_data_array = &sr_data;
+    init.srdata.service_data_count = 0x01;
+    init.srdata.name_type = BLE_ADVDATA_FULL_NAME;
+
+    err_code = ble_advdata_encode(&init.advdata, m_adv_data.adv_data.p_data, &m_adv_data.adv_data.len);
+    APP_ERROR_CHECK(err_code);
+    err_code = ble_advdata_encode(&init.srdata, m_adv_data.scan_rsp_data.p_data, &m_adv_data.scan_rsp_data.len);
+    APP_ERROR_CHECK(err_code);
+    //err_code = ble_advertising_init(&m_advertising, &init);
+    //APP_ERROR_CHECK(err_code);
+
+    //初始化发布参数(在开始发布时使用).
+    memset(&m_adv_params, 0, sizeof(m_adv_params));
+
+    m_adv_params.properties.type = BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED;
+    m_adv_params.p_peer_addr = NULL; // Undirected advertisement.
+    m_adv_params.filter_policy = BLE_GAP_ADV_FP_ANY;
+    m_adv_params.interval = S_interval;
+    m_adv_params.duration = 0; // Never time out.
+
+    err_code = sd_ble_gap_adv_set_configure(&m_adv_handle, &m_adv_data, &m_adv_params);
+    APP_ERROR_CHECK(err_code);
 }
-
 
 /**@brief Function for initializing power management.
  */
@@ -506,9 +640,14 @@ static void idle_state_handle(void)
  */
 static void advertising_start(void)
 {
+    ret_code_t err_code;
 
+    err_code = sd_ble_gap_adv_start(m_adv_handle, APP_BLE_CONN_CFG_TAG);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
+    APP_ERROR_CHECK(err_code);
 }
-
 
 /**@brief Application main function.
  */
