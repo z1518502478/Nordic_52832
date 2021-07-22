@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2014 - 2019, Nordic Semiconductor ASA
  *
@@ -70,6 +71,7 @@
 #include "nrf_pwr_mgmt.h"
 #include "ble_diy_service.h"
 #include "ble_info_service.h"
+#include "config.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -130,6 +132,8 @@ BLE_ADVERTISING_DEF(m_advertising);                                             
 #define UICR_ADDRESS 0x10001080          /**< Address of the UICR register used by this example. The major and minor versions to be encoded into the advertising data will be picked up from this location. */
 #endif
 
+SYS_CONFIG sys_config_t;
+
 static ble_gap_adv_params_t m_adv_params;                     /**< Parameters to be passed to the stack when starting advertising. */
 static uint8_t      m_adv_handle     = BLE_GAP_ADV_SET_HANDLE_NOT_SET; /**< Advertising handle used to identify an advertising set. */
 static uint8_t      m_enc_advdata[BLE_GAP_ADV_SET_DATA_SIZE_MAX];
@@ -148,11 +152,11 @@ static ble_gap_adv_data_t m_adv_data =
         .adv_data =
             {
                 .p_data = m_enc_advdata,
-                .len = BLE_GAP_ADV_SET_DATA_SIZE_MAX},
+                .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX},
         .scan_rsp_data =
             {
                 .p_data = m_enc_scandata,
-                .len = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+                .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
 
             }};
 
@@ -254,6 +258,30 @@ static void diy_service_handler(ble_diy_evt_t *p_evt)
   uint16_t uuid = p_evt->uuid;
   switch (uuid)
   {
+  case SERVICEPROFILE_UUID_CHAR1:
+      memcpy((void *)&sys_config_t.charid, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR1_LEN);
+      break;
+  case SERVICEPROFILE_UUID_CHAR2:
+      memcpy((void *)&sys_config_t.UUID_value, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR2_LEN);
+      break;
+  case SERVICEPROFILE_UUID_CHAR3:
+      memcpy((void *)&sys_config_t.txPower, p_evt->params.service_data.p_data, 1);
+      break;
+  case SERVICEPROFILE_UUID_CHAR4:
+      memcpy((void *)&sys_config_t.charbattry, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR4_LEN);
+      break;
+  case SERVICEPROFILE_UUID_CHAR5:
+      memcpy((void *)&sys_config_t.major_value, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR5_LEN);
+      break;
+  case SERVICEPROFILE_UUID_CHAR6:
+      memcpy((void *)&sys_config_t.minor_value, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR6_LEN);
+      break;
+  case SERVICEPROFILE_UUID_CHAR7:
+      memcpy((void *)&sys_config_t.interval, p_evt->params.service_data.p_data, 1);
+      break;
+  case SERVICEPROFILE_UUID_CHAR8:
+      memcpy((void *)&sys_config_t.Rxp, p_evt->params.service_data.p_data, 1);
+      break;
   default:
       break;
   }
@@ -388,6 +416,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         case BLE_GAP_EVT_DISCONNECTED:    
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            advertising_init();
+            advertising_start();
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
@@ -601,6 +631,11 @@ static void advertising_init(void)
     m_beacon_info[index++] = MSB_16(minor_value);
     m_beacon_info[index++] = LSB_16(minor_value);
 #endif
+
+    memcpy(m_beacon_info + 2, sys_config_t.UUID_value, 16);
+    memcpy(m_beacon_info + 18, sys_config_t.major_value, 2);
+    memcpy(m_beacon_info + 20, sys_config_t.minor_value, 2);
+    *(m_beacon_info + 22) = sys_config_t.Rxp;
 
     manuf_specific_data.company_identifier = APP_COMPANY_IDENTIFIER;
     manuf_specific_data.data.p_data = (uint8_t *)m_beacon_info;
