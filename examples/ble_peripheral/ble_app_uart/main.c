@@ -74,6 +74,7 @@
 #include "config.h"
 #include "nvmc.h"
 #include "uart_ble.h"
+#include "adc.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -123,10 +124,12 @@
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
 
+
 BLE_DIY_DEF(m_diy);                                                                 /**< BLE NUS service instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
+
 
 
 #if defined(USE_UICR_FOR_MAJ_MIN_VALUES)
@@ -767,6 +770,7 @@ int main(void)
 {
 
     // Initialize.
+    ADC_Init();
     UART_Init();
     timers_init();
     Nvcm_Check_init(sizeof(SYS_CONFIG) + sizeof(uint32_t));
@@ -781,6 +785,9 @@ int main(void)
     conn_params_init();
 
     //Start execution.
+    ADC_Read();
+    nrf_delay_ms(20);
+    ADC_Disable();
     advertising_start();
 
     // Enter main loop.
