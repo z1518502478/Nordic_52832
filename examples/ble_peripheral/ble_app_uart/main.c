@@ -72,6 +72,7 @@
 #include "ble_diy_service.h"
 #include "ble_info_service.h"
 #include "config.h"
+#include "nvmc.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -259,7 +260,7 @@ static void diy_service_handler(ble_diy_evt_t *p_evt)
   switch (uuid)
   {
   case SERVICEPROFILE_UUID_CHAR1:
-      memcpy((void *)&sys_config_t.charid, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR1_LEN);
+      memcpy((void *)&sys_config_t.charkey, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR1_LEN);
       break;
   case SERVICEPROFILE_UUID_CHAR2:
       memcpy((void *)&sys_config_t.UUID_value, p_evt->params.service_data.p_data, SERVICEPROFILE_CHAR2_LEN);
@@ -725,6 +726,8 @@ int main(void)
     // Initialize.
     uart_init();
     timers_init();
+    Nvcm_Check_init(sizeof(SYS_CONFIG) + sizeof(uint32_t));
+    Nvmc_Read((uint8_t *)&nvdata, sizeof(SYS_CONFIG) + sizeof(uint32_t));
 
     power_management_init();
     ble_stack_init();
