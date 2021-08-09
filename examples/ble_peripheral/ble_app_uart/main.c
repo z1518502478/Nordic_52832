@@ -75,6 +75,7 @@
 #include "nvmc.h"
 #include "uart_ble.h"
 #include "adc.h"
+#include "watchdog.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -772,6 +773,9 @@ int main(void)
     // Initialize.
     ADC_Init();
     UART_Init();
+#ifdef IWDG_ENABLE
+    Watchdog_Init();
+#endif
     timers_init();
     Nvcm_Check_init(sizeof(SYS_CONFIG) + sizeof(uint32_t));
     Nvmc_Read((uint8_t *)&nvdata, sizeof(SYS_CONFIG) + sizeof(uint32_t), FLASH_ADDR);
@@ -798,8 +802,11 @@ int main(void)
         {
             Uart_Processing();
         }
-
         idle_state_handle();
+
+#ifdef IWDG_ENABLE
+        Watchdog_Clear();
+#endif
     }
 }
 
