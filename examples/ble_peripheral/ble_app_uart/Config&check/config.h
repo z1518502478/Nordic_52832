@@ -7,6 +7,7 @@ typedef struct
 {
     uint8_t charkey[2];     //服务密钥
     uint8_t charbattry[2];  //电池电量
+    uint8_t mac_addr[6];
     uint8_t txPower;        //发射信号强度
     uint8_t interval;       //工作间隔
     uint8_t major_value[2]; //Major
@@ -21,7 +22,7 @@ typedef struct
 
 typedef struct
 {
-    uint32_t crc32;
+    uint32_t crc32;  
     SYS_CONFIG sys_config_t;
 } SVNINF_t;
 

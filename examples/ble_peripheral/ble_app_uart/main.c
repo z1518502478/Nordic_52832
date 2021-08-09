@@ -73,6 +73,7 @@
 #include "ble_info_service.h"
 #include "config.h"
 #include "nvmc.h"
+#include "uart_ble.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -133,7 +134,9 @@ BLE_ADVERTISING_DEF(m_advertising);                                             
 #define UICR_ADDRESS 0x10001080          /**< Address of the UICR register used by this example. The major and minor versions to be encoded into the advertising data will be picked up from this location. */
 #endif
 
+extern SVNINF_t nvdata;
 SYS_CONFIG sys_config_t;
+extern Buff_t buff_t;
 
 static ble_gap_adv_params_t m_adv_params;                     /**< Parameters to be passed to the stack when starting advertising. */
 static uint8_t      m_adv_handle     = BLE_GAP_ADV_SET_HANDLE_NOT_SET; /**< Advertising handle used to identify an advertising set. */
@@ -146,6 +149,12 @@ static ble_uuid_t   m_adv_uuids[] = /**< Universally unique service identifier. 
         {BLE_UUID_DIY_SERVICE, NUS_SERVICE_UUID_TYPE}};
 
 static uint8_t p_data[] = {0x27, 0xD6, 0x28, 0x66, 0xE5, 0x01};
+uint8_t D_FRT[10] = {'2', '0', '2', '0', '-', '0', '9', '-', '2', '4'};                                                
+uint8_t D_FR[14] = {'H', 'M', 'V', 'E', 'R', 'S', 'I', 'O', 'N', '_', '0', '0', '0', '8'};                             
+uint8_t D_CKey[16] = {0xDE, 0x48, 0x2B, 0x1C, 0x22, 0x1C, 0x6C, 0x30, 0x3C, 0xF0, 0x50, 0xEB, 0x00, 0x20, 0xB0, 0xBD}; 
+uint8_t Back_AT[4] = {'O','K','\r','\n'};
+uint8_t Back_A[6] = {'O','K','+','1','\r','\n'};
+uint8_t Back_T[3] = {'O','K','+'};
 
 /**@brief Struct that contains pointers to the encoded advertising data. */
 static ble_gap_adv_data_t m_adv_data =
@@ -179,6 +188,7 @@ static uint8_t m_beacon_info[APP_BEACON_INFO_LENGTH] = /**< Information advertis
 
 static void advertising_start(void);
 static void advertising_init(void);
+void UART_WriteData(uint8_t *pData, uint8_t dataLen); 
 
 /**@brief Function for assert macro callback.
  *
@@ -541,66 +551,6 @@ void bsp_event_handler(bsp_event_t event)
     }
 }
 
-
-/**@brief   Function for handling app_uart events.
- *
- * @details This function will receive a single character from the app_uart module and append it to
- *          a string. The string will be be sent over BLE when the last character received was a
- *          'new line' '\n' (hex 0x0A) or if the string has reached the maximum data length.
- */
-/**@snippet [Handling the data received over UART] */
-void uart_event_handle(app_uart_evt_t * p_event)
-{
-
-    switch (p_event->evt_type)
-    {
-        case APP_UART_COMMUNICATION_ERROR:
-            APP_ERROR_HANDLER(p_event->data.error_communication);
-            break;
-
-        case APP_UART_FIFO_ERROR:
-            APP_ERROR_HANDLER(p_event->data.error_code);
-            break;
-
-        default:
-            break;
-    }
-}
-/**@snippet [Handling the data received over UART] */
-
-
-/**@brief  Function for initializing the UART module.
- */
-/**@snippet [UART Initialization] */
-static void uart_init(void)
-{
-    uint32_t                     err_code;
-    app_uart_comm_params_t const comm_params =
-    {
-        .rx_pin_no    = RX_PIN_NUMBER,
-        .tx_pin_no    = TX_PIN_NUMBER,
-        .rts_pin_no   = RTS_PIN_NUMBER,
-        .cts_pin_no   = CTS_PIN_NUMBER,
-        .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
-        .use_parity   = false,
-#if defined (UART_PRESENT)
-        .baud_rate    = NRF_UART_BAUDRATE_115200
-#else
-        .baud_rate    = NRF_UARTE_BAUDRATE_115200
-#endif
-    };
-
-    APP_UART_FIFO_INIT(&comm_params,
-                       UART_RX_BUF_SIZE,
-                       UART_TX_BUF_SIZE,
-                       uart_event_handle,
-                       APP_IRQ_PRIORITY_LOWEST,
-                       err_code);
-    APP_ERROR_CHECK(err_code);
-}
-/**@snippet [UART Initialization] */
-
-
 /**@brief Function for initializing the Advertising functionality.
  */
 static void advertising_init(void)
@@ -718,16 +668,109 @@ static void advertising_start(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
+void Uart_Processing(void)
+{
+	
+    uint8_t restflg;
+    restflg = false;
+    if (buff_t.w_len == 4 && str_cmp(buff_t.userBuffer, "AT\r\n", 4))
+    {
+        UART_WriteData(Back_AT,4);
+        memset(buff_t.userBuffer, 0, BUFSIZE);
+        buff_t.w_len = 0;
+    }
+    else if ((buff_t.w_len == 49) && str_cmp(buff_t.userBuffer, "AT+1=", 5))
+    {
+        for (uint8_t i = 0; i < 16; i++)
+        {
+            nvdata.sys_config_t.UUID_value[i] = buff_t.userBuffer[5 + i];
+        }
+        for (uint8_t i = 0; i < 2; i++)
+        {
+            nvdata.sys_config_t.major_value[i] = buff_t.userBuffer[21 + i];
+        }
+        for (uint8_t i = 0; i < 2; i++)
+        {
+            nvdata.sys_config_t.minor_value[i] = buff_t.userBuffer[23 + i];
+        }
+        for (uint8_t i = 0; i < 10; i++)
+        {
+            nvdata.sys_config_t.date[i] = buff_t.userBuffer[25 + i];
+        }
+        for (uint8_t i = 0; i < 4; i++)
+        {
+            nvdata.sys_config_t.HWVR[i] = buff_t.userBuffer[35 + i];
+        }
+        nvdata.sys_config_t.txPower = buff_t.userBuffer[39];
+        switch (nvdata.sys_config_t.txPower)
+        {
+            case 1:
+                nvdata.sys_config_t.Rxp = 0xAB;
+                break; //-10dBm
+            case 3:
+                nvdata.sys_config_t.Rxp = 0xB5;
+                break; //0dBm
+            case 5:
+                nvdata.sys_config_t.Rxp = 0xBD;
+                break; //+8dBm
+            case 7:
+                nvdata.sys_config_t.Rxp = 0xC0;
+                break; //+11dBm
+            default:
+                nvdata.sys_config_t.Rxp = 0xB5;
+                break; //0dBm
+            }
+            nvdata.sys_config_t.interval = buff_t.userBuffer[40];
+            for (uint8_t i = 0; i < 6; i++)
+            {
+                nvdata.sys_config_t.mac_addr[i] = buff_t.userBuffer[41 + i];
+            }
+
+            UART_WriteData(Back_A, 6);
+            nvdata.sys_config_t.AT_Flag = 0;
+            Nvmc_Write((uint8_t *)&nvdata.sys_config_t, sizeof(SYS_CONFIG));
+
+            memset(buff_t.userBuffer, 0, BUFSIZE);
+            buff_t.w_len = 0;
+    }
+    //AT查询
+    if ((buff_t.w_len == 6) && str_cmp(buff_t.userBuffer, "AT+?\r\n", 6))
+    {
+        Nvmc_Read((uint8_t*)&nvdata.sys_config_t, sizeof(SYS_CONFIG), FLASH_ADDR + 4);
+        
+
+        UART_WriteData(Back_T, 3);
+        UART_WriteData(&nvdata.sys_config_t.mac_addr[0], 43);
+        UART_WriteData(D_FRT, 10);
+        UART_WriteData(D_FR, 14);
+        UART_WriteData(D_CKey, 16);
+
+        nvdata.sys_config_t.AT_Flag = 1;
+        sys_config_t.Rxp = 0xB5;
+
+        Nvmc_Write((uint8_t *)&nvdata.sys_config_t, sizeof(SYS_CONFIG));
+
+        restflg = true;
+    }
+		
+    if(true == restflg)
+    {
+        nrf_delay_ms(1000);
+        NVIC_SystemReset();
+    }
+}
+
 /**@brief Application main function.
  */
 int main(void)
 {
 
     // Initialize.
-    uart_init();
+    UART_Init();
     timers_init();
     Nvcm_Check_init(sizeof(SYS_CONFIG) + sizeof(uint32_t));
-    Nvmc_Read((uint8_t *)&nvdata, sizeof(SYS_CONFIG) + sizeof(uint32_t));
+    Nvmc_Read((uint8_t *)&nvdata, sizeof(SYS_CONFIG) + sizeof(uint32_t), FLASH_ADDR);
 
     power_management_init();
     ble_stack_init();
@@ -737,12 +780,18 @@ int main(void)
     advertising_init();
     conn_params_init();
 
-    // Start execution.
+    //Start execution.
     advertising_start();
 
     // Enter main loop.
+		
     for (;;)
     {
+        if(nvdata.sys_config_t.AT_Flag == 0)
+        {
+            Uart_Processing();
+        }
+
         idle_state_handle();
     }
 }
