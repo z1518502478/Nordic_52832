@@ -1582,11 +1582,6 @@
               <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_wdt.c</FilePath>
             </File>
             <File>
-              <FileName>nrfx_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_timer.c</FilePath>
-            </File>
-            <File>
               <FileName>nrfx_saadc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_saadc.c</FilePath>
@@ -5009,11 +5004,6 @@
               <FileName>nrfx_wdt.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_wdt.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrfx_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_timer.c</FilePath>
             </File>
             <File>
               <FileName>nrfx_saadc.c</FileName>

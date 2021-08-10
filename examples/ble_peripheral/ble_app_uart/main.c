@@ -124,13 +124,12 @@
 
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
-
-
+#define TEST_PERIOD                     APP_TIMER_TICKS(60000*30)                 	// 定时时间
 BLE_DIY_DEF(m_diy);                                                                 /**< BLE NUS service instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
-
+APP_TIMER_DEF(my_timer_id);                                                         //定义timer ID
 
 
 #if defined(USE_UICR_FOR_MAJ_MIN_VALUES)
@@ -192,7 +191,7 @@ static uint8_t m_beacon_info[APP_BEACON_INFO_LENGTH] = /**< Information advertis
 
 static void advertising_start(void);
 static void advertising_init(void);
-void UART_WriteData(uint8_t *pData, uint8_t dataLen); 
+void UART_WriteData(uint8_t *pData, uint8_t dataLen);
 
 /**@brief Function for assert macro callback.
  *
@@ -210,12 +209,47 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
+/**
+ * @brief Function for Timer Handler
+ * 
+*/
+static void my_timeout_handler(void *p_context)
+{
+    UNUSED_PARAMETER(p_context);
+    NVIC_SystemReset();
+}
+
+
+/**
+ * @brief Function for Start Timer 
+ * 
+*/
+void StartTestTimer(void)
+{
+    ret_code_t err_code = app_timer_start(my_timer_id, TEST_PERIOD, NULL);                           
+    APP_ERROR_CHECK(err_code);
+}
+
+
+/**
+ @brief Function for Open Timer 
+*/
+void StopTestTimer(void)
+{
+    app_timer_stop(my_timer_id);                            		
+}
+
 /**@brief Function for initializing the timer module.
  */
 static void timers_init(void)
 {
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
+
+    //创建定时器
+    err_code = app_timer_create(&my_timer_id, APP_TIMER_MODE_REPEATED, my_timeout_handler);
+    APP_ERROR_CHECK(err_code);
+
 }
 
 /**@brief Function for the GAP initialization.
@@ -587,10 +621,10 @@ static void advertising_init(void)
     m_beacon_info[index++] = LSB_16(minor_value);
 #endif
 
-    memcpy(m_beacon_info + 2, sys_config_t.UUID_value, 16);
-    memcpy(m_beacon_info + 18, sys_config_t.major_value, 2);
-    memcpy(m_beacon_info + 20, sys_config_t.minor_value, 2);
-    *(m_beacon_info + 22) = sys_config_t.Rxp;
+    memcpy(m_beacon_info + 2, nvdata.sys_config_t.UUID_value, 16);
+    memcpy(m_beacon_info + 18, nvdata.sys_config_t.major_value, 2);
+    memcpy(m_beacon_info + 20, nvdata.sys_config_t.minor_value, 2);
+    *(m_beacon_info + 22) = nvdata.sys_config_t.Rxp;
 
     manuf_specific_data.company_identifier = APP_COMPANY_IDENTIFIER;
     manuf_specific_data.data.p_data = (uint8_t *)m_beacon_info;
@@ -772,7 +806,7 @@ int main(void)
 
     // Initialize.
     ADC_Init();
-    UART_Init();
+    //UART_Init();
 #ifdef IWDG_ENABLE
     Watchdog_Init();
 #endif
@@ -793,6 +827,7 @@ int main(void)
     nrf_delay_ms(20);
     ADC_Disable();
     advertising_start();
+		StartTestTimer();
 
     // Enter main loop.
 		

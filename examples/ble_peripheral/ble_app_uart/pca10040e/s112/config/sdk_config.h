@@ -3997,7 +3997,7 @@
 // <0=> Pause in SLEEP and HALT 
 
 #ifndef NRFX_WDT_CONFIG_BEHAVIOUR
-#define NRFX_WDT_CONFIG_BEHAVIOUR 8
+#define NRFX_WDT_CONFIG_BEHAVIOUR 1
 #endif
 
 // <o> NRFX_WDT_CONFIG_RELOAD_VALUE - Reload value  <15-4294967295> 
@@ -5452,7 +5452,7 @@
 // <7=> 7 
 
 #ifndef APP_TIMER_CONFIG_IRQ_PRIORITY
-#define APP_TIMER_CONFIG_IRQ_PRIORITY 6
+#define APP_TIMER_CONFIG_IRQ_PRIORITY 7
 #endif
 
 // <o> APP_TIMER_CONFIG_OP_QUEUE_SIZE - Capacity of timer requests queue. 
@@ -5462,14 +5462,14 @@
 // <i> will fail.
 
 #ifndef APP_TIMER_CONFIG_OP_QUEUE_SIZE
-#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 10
+#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 15
 #endif
 
 // <q> APP_TIMER_CONFIG_USE_SCHEDULER  - Enable scheduling app_timer events to app_scheduler
  
 
 #ifndef APP_TIMER_CONFIG_USE_SCHEDULER
-#define APP_TIMER_CONFIG_USE_SCHEDULER 0
+#define APP_TIMER_CONFIG_USE_SCHEDULER 1
 #endif
 
 // <q> APP_TIMER_KEEPS_RTC_ACTIVE  - Enable RTC always on
@@ -5490,7 +5490,7 @@
 // <i> without corrupting app_timer behavior.
 
 #ifndef APP_TIMER_SAFE_WINDOW_MS
-#define APP_TIMER_SAFE_WINDOW_MS 300000
+#define APP_TIMER_SAFE_WINDOW_MS 6000
 #endif
 
 // <h> App Timer Legacy configuration - Legacy configuration.
